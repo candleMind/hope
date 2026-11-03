@@ -53,3 +53,5 @@ BDI_SYMPTOM_NAMES = {
     "tiredness": "20. Tiredness or Fatigue",
     "loss_of_interest_in_sex": "21. Loss of Interest in Sex",
 }
+
+LABELED_SENTENCE_DIR = "data/erisk23-24-sentences"

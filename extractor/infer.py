@@ -7,6 +7,8 @@ import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
+from utils.constants import PROCESSED_DATA_DIR
+
 from .model import load_checkpoint
 
 
@@ -89,7 +91,7 @@ def main(checkpoint_path):
     print("Model and tokenizer loaded successfully.")
 
     print("Loading data...")
-    all_df = load_data("data")
+    all_df = load_data(PROCESSED_DATA_DIR)
     texts = all_df["doc_text"].tolist()
 
     if not texts:
