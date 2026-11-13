@@ -6,8 +6,12 @@ import torch
 from peft import PeftModel
 from scipy.spatial.distance import cdist
 from sentence_transformers import SentenceTransformer
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import normalize
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from clustering.noise_filter import keep_mask
+from clustering.similarity import symptom_sims
 from data_processing.text_preprocess import sentence_segmentation
 from utils.constants import CHECKPOINT_PATH, DESCRIPTION_FOLDER, RELEVANT_THRESHOLD
 
@@ -233,6 +237,34 @@ def main(data_path, description_folder, output_dir, model_path, topk=5000):
         output_dir=output_dir,
         topk=topk,
     )
+
+
+MIN_KEEP = 500
+
+
+def fit_kmeans(X, init):
+    km = KMeans(n_clusters=len(init), init=init, n_init=1, max_iter=300).fit(X)
+    return km.cluster_centers_
+
+
+def doc_frame(docs, sims, n):
+    df = pd.DataFrame(sims, columns=[f"s{j}" for j in range(n)])
+    df["doc"] = docs
+    return df.groupby("doc").max()
+
+
+def model_scores(X, docs, avg_c, five, thr, K, labels, n, min_keep=MIN_KEEP):
+    X = normalize(np.asarray(X))
+    if thr is None:
+        keep, share = np.ones(len(X), dtype=bool), 1.0
+    else:
+        keep, share = keep_mask(X, five, thr)
+    if int(keep.sum()) < min_keep:
+        return None, share
+    init = avg_c if K == n else five
+    C = fit_kmeans(X[keep], init)
+    S = symptom_sims(X, C, labels, n)
+    return doc_frame(np.asarray(docs)[keep], S[keep], n), share
 
 
 if __name__ == "__main__":

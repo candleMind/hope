@@ -7,6 +7,7 @@ import torch
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import euclidean_distances
+from scipy.spatial.distance import cdist
 from sklearn.neighbors import KNeighborsClassifier
 
 
@@ -198,3 +199,23 @@ def get_top_sentences_for_symptoms(
     # symptom_df = symptom_df.head(top_k)
     symptom_df = symptom_df.nlargest(top_k, "similarity")
     return symptom_df[["docid", "doc_text", "similarity"]]
+
+
+def inverse_distance(X, Y):
+    return 1.0 / (1.0 + cdist(X, Y, metric="euclidean"))
+
+
+def seed_max(X, seeds):
+    return inverse_distance(X, seeds).max(axis=1)
+
+
+def sym_max(D, labels, n):
+    out = np.zeros((D.shape[0], n))
+    for j in range(n):
+        out[:, j] = D[:, labels == j].max(axis=1)
+    return out
+
+
+def symptom_sims(X, C, labels, n):
+    D = inverse_distance(X, C)
+    return D if len(C) == n else sym_max(D, labels, n)

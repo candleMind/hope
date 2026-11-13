@@ -1,7 +1,9 @@
 import os
 
+import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
+from sklearn.preprocessing import normalize
 
 
 def read_data(data_path, text_column="doc_text", id_column="docid"):
@@ -46,3 +48,34 @@ def encoding(model: SentenceTransformer, device, df, batch_size=64):
     print(embeddings.shape)
 
     return embeddings
+
+
+def read_statements(symptoms, folder):
+    if not folder or folder.startswith("<"):
+        raise ValueError("Set LLM_DESCRIPTION_FOLDER in utils/constants.py to the folder of the LLM descriptions.")
+    out = {}
+    for s in symptoms:
+        path = os.path.join(folder, f"{s}.txt")
+        with open(path, encoding="utf-8") as f:
+            lines = [line.strip() for line in f if line.strip()]
+        if len(lines) != 5:
+            raise ValueError(f"{path}: expected 5 statements, found {len(lines)}")
+        out[s] = lines
+    return out
+
+
+def encode_statements(encode, statements, symptoms):
+    raw = [np.asarray(encode(statements[s])) for s in symptoms]
+    avg_c = normalize(np.array([r.mean(axis=0) for r in raw]))
+    five = normalize(np.vstack(raw))
+    return avg_c, five
+
+
+def make_st_encoder(model_path, prefix="", device=None, batch_size=64):
+    st = SentenceTransformer(model_path, trust_remote_code=True, device=device)
+    st.max_seq_length = 256
+
+    def encode(texts):
+        return st.encode([prefix + t for t in texts], batch_size=batch_size, show_progress_bar=True)
+
+    return encode

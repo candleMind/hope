@@ -1,6 +1,6 @@
 import os
 
-from utils.constants import BDI_SYMPTOM_NAMES, DESCRIPTION_FOLDER
+from utils.constants import BDI_SYMPTOM_NAMES, LLM_DESCRIPTION_FOLDER
 
 PROMPT = """
 You are a medical AI assistant specialized in generating realistic symptom descriptions for clinical training data.
@@ -44,12 +44,14 @@ def generate(prompt):
 
 
 def generate_descriptions(
-    symptoms, out_dir=DESCRIPTION_FOLDER, definitions=None, examples=None
+    symptoms, out_dir=LLM_DESCRIPTION_FOLDER, definitions=None, examples=None
 ):
     """Generate statements for each symptom key and write to out_dir/<symptom>.txt.
 
     definitions / examples: optional dict symptom -> str.
     """
+    if not out_dir or out_dir.startswith("<"):
+        raise ValueError("Set LLM_DESCRIPTION_FOLDER in utils/constants.py before generating descriptions.")
     definitions, examples = definitions or {}, examples or {}
     os.makedirs(out_dir, exist_ok=True)
     for symptom in symptoms:

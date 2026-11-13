@@ -4,7 +4,12 @@ DESCRIPTION_FOLDER = "clustering/questionaire"
 
 MODEL_BASELINE = "rafalposwiata/deproberta-large-depression"
 CHECKPOINT_PATH = "checkpoints/checkpoint-v0"
-RELEVANT_THRESHOLD = 0.1
+RELEVANT_THRESHOLD = 0.5
+
+LLM_DESCRIPTION_FOLDER = "<your_path_to_LLM_descriptions>"  # <symptom>.txt, five statements per line
+NOMIC_TASK_PREFIX = "clustering: "
+NOISE_THRESHOLD = 0.60
+KMEANS_K = 21
 
 LIST_BDI_SYMPTOMS = [
     "sadness",
@@ -53,3 +58,5 @@ BDI_SYMPTOM_NAMES = {
     "tiredness": "20. Tiredness or Fatigue",
     "loss_of_interest_in_sex": "21. Loss of Interest in Sex",
 }
+
+LABELED_SENTENCE_DIR = "data/erisk23-24-sentences"
