@@ -1,15 +1,21 @@
 import argparse
 import os
 
-from clustering.ensemble import main as ensemble_main
-from clustering.kmeans import main as kmeans_main
+from clustering.embedding import make_st_encoder
+from clustering.ensemble import run_unsupervised
 from clustering.relevant_filter import filter_relevant_predictions
 from data_processing.create_labeled_data import main as create_labeled_data_main
 from data_processing.trec_loader import main as trec_loader_main
 from evaluate import call_metrics, load_run_file
 from extractor.infer import main as extractor_infer_main
 from fusion.run import main as fusion_main
-from utils.constants import DESCRIPTION_FOLDER
+from utils.constants import (
+    KMEANS_K,
+    LIST_BDI_SYMPTOMS,
+    LLM_DESCRIPTION_FOLDER,
+    NOISE_THRESHOLD,
+    NOMIC_TASK_PREFIX,
+)
 
 
 def main():
@@ -37,6 +43,11 @@ def main():
         type=str,
         default="hope_run",
         help="A name for the final run file.",
+    )
+    parser.add_argument(
+        "--first_person",
+        action="store_true",
+        help="First-person sentence filter before the unsupervised step (E68; not in the main configuration).",
     )
     args = parser.parse_args()
 
@@ -74,26 +85,22 @@ def main():
     else:
         print("Relevant predictions file found, skipping filter.")
 
-    symptom_sentence_dir = "outputs/symptom_sentences"
-    if not os.path.exists(symptom_sentence_dir) or not os.listdir(symptom_sentence_dir):
-        print("Running unsupervised symptom sentence mapping...")
-        for model_path in (
-            "nomic-ai/nomic-embed-text-v1.5",
-            "nomic-ai/modernbert-embed-base",
-        ):
-            kmeans_main(
-                relevant_preds_file,
-                DESCRIPTION_FOLDER,
-                symptom_sentence_dir,
-                model_path,
-            )
-    else:
-        print("Symptom sentences found, skipping mapping.")
-
     unsupervised_preds_file = "outputs/unsupervised_preds.csv"
     if not os.path.exists(unsupervised_preds_file):
-        print("Ensembling and merging symptom similarities...")
-        ensemble_main(symptom_sentence_dir, unsupervised_preds_file)
+        encoders = {
+            "nomic": make_st_encoder("nomic-ai/nomic-embed-text-v1.5", prefix=NOMIC_TASK_PREFIX),
+            "modernbert": make_st_encoder("nomic-ai/modernbert-embed-base"),
+        }
+        run_unsupervised(
+            relevant_preds_file,
+            unsupervised_preds_file,
+            encoders,
+            LIST_BDI_SYMPTOMS,
+            statements_dir=LLM_DESCRIPTION_FOLDER,
+            thr=NOISE_THRESHOLD,
+            K=KMEANS_K,
+            first_person=args.first_person,
+        )
     else:
         print("Unsupervised predictions found, skipping ensemble.")
 
