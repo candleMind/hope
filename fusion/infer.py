@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from fusion.model import load_checkpoint
 from fusion.training import FusionDataset, collate_fn
+from utils.constants import LIST_BDI_SYMPTOMS
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -203,29 +204,18 @@ def infer(
 def main():
     """Main inference function"""
     # Configuration
-    symptom_columns = [
-        "anger",
-        "cognitive_dysfunction",
-        "empty",
-        "hopelessness",
-        "loneliness",
-        "sadness",
-        "suicide_intent",
-        "worthlessness",
-    ]
+    symptom_columns = LIST_BDI_SYMPTOMS  # 21 for BDI-II
 
     # Paths (adjust these to your paths)
-    checkpoint_path = "results/fusion_5500_f1(0.8074)_loss(0.5375).pt"  # Update with your checkpoint path
-    test_supervised_path = "outputs/test/supervised_preds.csv"
-    test_unsupervised_path = (
-        "outputs/test/multilabel-questionaire-32_avg_sim_merged_output.csv"
-    )
+    checkpoint_path = "results/{checkpoint}.pt"  # Update with your checkpoint path
+    test_supervised_path = "outputs/test/{supervised_preds}.csv"
+    test_unsupervised_path = "outputs/test/{unsupervised_preds}.csv"
     output_path = "outputs/test/fusion_predictions.csv"
 
     # Get supervised and unsupervised column counts
     # These should match your training configuration
-    sup_size = len(symptom_columns)  # 8
-    unsup_size = 32  # Adjust based on your clustering configuration
+    sup_size = len(symptom_columns)
+    unsup_size = len(symptom_columns)  # one KMeans cluster per BDI symptom
 
     # Run inference
     result_df = infer(

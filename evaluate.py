@@ -1,8 +1,9 @@
-import pytrec_eval
-import pandas as pd
-import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
 import argparse
+
+import numpy as np
+import pandas as pd
+import pytrec_eval
+from sklearn.metrics import precision_recall_fscore_support
 
 
 def load_run_file(run_file_path):
@@ -55,9 +56,7 @@ def call_metrics(preds, gold_url, thres=0.5):
     # Ensure all queries in preds exist in golds to avoid errors
     queries_to_eval = {q: preds[q] for q in preds if q in golds}
 
-    evaluator = pytrec_eval.RelevanceEvaluator(
-        golds, {"map", "Rprec", "P_10", "ndcg"}
-    )
+    evaluator = pytrec_eval.RelevanceEvaluator(golds, {"map", "Rprec", "P_10", "ndcg"})
     result = evaluator.evaluate(queries_to_eval)
 
     for q in queries_to_eval:
@@ -128,4 +127,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

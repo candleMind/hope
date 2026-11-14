@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from fusion.model import get_model
+from utils.constants import LIST_BDI_SYMPTOMS
 
 SEED = 42
 np.random.seed(SEED)
@@ -412,16 +413,7 @@ def main(
 
 if __name__ == "__main__":
     # Default configuration for standalone execution
-    symptom_columns = [
-        "anger",
-        "cognitive_dysfunction",
-        "empty",
-        "hopelessness",
-        "loneliness",
-        "sadness",
-        "suicide_intent",
-        "worthlessness",
-    ]
+    symptom_columns = LIST_BDI_SYMPTOMS
 
     train_supervised_path = "outputs/train/supervised_preds.csv"
     train_unsupervised_path = (
