@@ -6,11 +6,14 @@ import torch
 from peft import PeftModel
 from scipy.spatial.distance import cdist
 from sentence_transformers import SentenceTransformer
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import normalize
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from clustering.noise_filter import keep_mask
+from clustering.similarity import symptom_sims
 from data_processing.text_preprocess import sentence_segmentation
-from utils.constants import (CHECKPOINT_PATH, DESCRIPTION_FOLDER,
-                             RELEVANT_THRESHOLD)
+from utils.constants import CHECKPOINT_PATH, DESCRIPTION_FOLDER, RELEVANT_THRESHOLD
 
 
 def load_avg_questionnaire_vectors(description_folder, model):
@@ -119,7 +122,7 @@ def kmeans_clustering(embeddings, questionnaire_symptom_vectors, n_clusters=10):
         n_clusters=n_clusters, init=centroids_norm, n_init=1
     )  # n_init=1 to use provided init
     kmeans.fit(embeddings_norm)
-    return kmeans.labels_, kmeans.cluster_centers_, embeddings_norm, centroids_norm
+    return kmeans.labels_, kmeans.cluster_centers_, embeddings_norm
 
 
 def find_symptom_sentences(
@@ -131,14 +134,14 @@ def find_symptom_sentences(
     use_depression_model=False,
     checkpoint_path=CHECKPOINT_PATH,
     output_dir=None,
-    id_column="sentence_id",
-    text_column="text",
+    id_column="doc_no",
+    text_column="doc_text",
 ):
     # Load data
     df = pd.read_csv(data_path)
 
     # filter out rows with  no value >= rel_thres
-    pred_cols = [col for col in df.columns if col.startswith("pred_")]
+    pred_cols = [col for col in df.columns if col.startswith(("pred_", "query_"))]
     df = df[df[pred_cols].gt(rel_thres).any(axis=1)].reset_index(drop=True)
     print(f"Filtered to {len(df)} texts with rel_thres > {rel_thres}")
 
@@ -175,7 +178,7 @@ def find_symptom_sentences(
     symptom_vectors = [symptom_to_vector[name] for name in symptom_names]
 
     # apply k-means clustering
-    labels, cluster_centers, embeddings_norm, centroids_norm = kmeans_clustering(
+    labels, cluster_centers, embeddings_norm = kmeans_clustering(
         embeddings, symptom_vectors, n_clusters=num_clusters
     )
     print("k-means labels:", labels.shape)
@@ -183,13 +186,12 @@ def find_symptom_sentences(
     cluster_id_to_symptom = {i: symptom for i, symptom in enumerate(symptom_names)}
 
     # for each cluster, save topk closest sentences to cluster center
-    os.makedirs(f"{output_dir}/kmeans/{model_name}", exist_ok=True)
+    os.makedirs(f"{output_dir}/{model_name}", exist_ok=True)
 
     for cluster_id in range(num_clusters):
         symptom = cluster_id_to_symptom[cluster_id]
-        v = cluster_centers[cluster_id]
         distances = cdist(
-            embeddings_norm, centroids_norm[cluster_id].reshape(1, -1), metric="cosine"
+            embeddings_norm, cluster_centers[cluster_id].reshape(1, -1), metric="cosine"
         ).flatten()
 
         # Sort by distance (ascending order - smallest distance first)
@@ -220,9 +222,6 @@ def find_symptom_sentences(
                 "sentence",
                 "minkowski_distance",
                 "similarity",
-                "emotions",
-                # symptom,
-                # f"pred_{symptom}",
             ]
         ].to_csv(f"{output_dir}/{model_name}/{symptom}.csv", index=False)
         print(f"Saved top {len(out_df)} for cluster {cluster_id} ({symptom})")
@@ -238,6 +237,34 @@ def main(data_path, description_folder, output_dir, model_path, topk=5000):
         output_dir=output_dir,
         topk=topk,
     )
+
+
+MIN_KEEP = 500
+
+
+def fit_kmeans(X, init):
+    km = KMeans(n_clusters=len(init), init=init, n_init=1, max_iter=300).fit(X)
+    return km.cluster_centers_
+
+
+def doc_frame(docs, sims, n):
+    df = pd.DataFrame(sims, columns=[f"s{j}" for j in range(n)])
+    df["doc"] = docs
+    return df.groupby("doc").max()
+
+
+def model_scores(X, docs, avg_c, five, thr, K, labels, n, min_keep=MIN_KEEP):
+    X = normalize(np.asarray(X))
+    if thr is None:
+        keep, share = np.ones(len(X), dtype=bool), 1.0
+    else:
+        keep, share = keep_mask(X, five, thr)
+    if int(keep.sum()) < min_keep:
+        return None, share
+    init = avg_c if K == n else five
+    C = fit_kmeans(X[keep], init)
+    S = symptom_sims(X, C, labels, n)
+    return doc_frame(np.asarray(docs)[keep], S[keep], n), share
 
 
 if __name__ == "__main__":

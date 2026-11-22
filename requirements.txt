@@ -7,3 +7,4 @@ tqdm
 pandas
 matplotlib
 pytrec_eval
+spacy

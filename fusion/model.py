@@ -29,6 +29,7 @@ class SupUnsupFusion(nn.Module):
         self.fusion = nn.Sequential(
             nn.Linear(sup_size + unsup_size, hidden_size),
             nn.ReLU(),
+            nn.Dropout(0.1),
             nn.Linear(hidden_size, label_size),
         )
 

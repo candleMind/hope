@@ -64,6 +64,9 @@ cover/
 *.mo
 *.pot
 
+# isort
+*.isorted
+
 # Django stuff:
 *.log
 local_settings.py
